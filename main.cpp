@@ -10,11 +10,13 @@
 using namespace std;
 
 void parse(string command);
+void schema_parser();
 void help_cmd();
 void create_table();
 void drop_table();
 void describe_table();
 void help_tables();
+void insert_data();
 
 class key{
     public:
@@ -42,7 +44,24 @@ int main()
 {
     string command;
     cout << "SQL INTERPRETER" << endl;
+    schema_parser();
     while(a!=0){
+        /*for(int i=0; i<schema.size(); i++){
+            for(int j=0; j<schema[i].keys.size(); j++){
+                cout<<schema[i].table_name<<"#"<<schema[i].keys[j].key_name<<"#"<<schema[i].keys[j].type;
+                if(schema[i].keys[j].primary == true){
+                    cout<<"#PK";
+                }
+                if(schema[i].keys[j].foreign == true){
+                    cout<<"#FK "<<schema[i].keys[j].reference_table<<" "<<schema[i].keys[j].reference_key;
+                }
+                if(schema[i].keys[j].condition != ""){
+                    cout<<"#"<<schema[i].keys[j].condition;
+                }
+                cout<<endl;
+            }
+        cout<<endl;
+        }*/
         cout << ">>Enter command" << endl;
         getline (cin, command);
         parse(command);
@@ -68,7 +87,7 @@ void parse(string command){
         describe_table();
     }
     else if(cmd_array[0] == "INSERT"){
-        cout<<"Insert data function"<<endl;
+        insert_data();
     }
     else if(cmd_array[0] == "DELETE"){
         cout<<"Delete data function"<<endl;
@@ -124,6 +143,14 @@ void help_cmd(){
 void create_table(){
     table tab;
     tab.table_name = cmd_array[2];
+    string filename = tab.table_name + ".csv";
+    fstream myfile;
+    for(int i=0; i<schema.size(); i++){
+        if(tab.table_name == schema[i].table_name){
+            cout<<">>Table already created"<<endl;
+            return;
+        }
+    }
     int i=3;
     while(cmd_array[i] != ");"){
         key k;
@@ -153,9 +180,32 @@ void create_table(){
                     break;
                 }
             }
+
             i = i+3;
+            int foreign_check=0, foreign_index;
+            for(int k=0; k<schema.size(); k++){
+                if(cmd_array[i] == schema[k].table_name){
+                    foreign_check=1;
+                    foreign_index=k;
+                }
+            }
+            if(foreign_check==0){
+                cout<<">>Foreign key error\n";
+                return;
+            }
             tab.keys[index].reference_table = cmd_array[i];
+
             i = i+2;
+            foreign_check=0;
+            for(int k=0; k<schema[foreign_index].keys.size(); k++){
+                if(cmd_array[i] == schema[foreign_index].keys[k].key_name){
+                    foreign_check=1;
+                }
+            }
+            if(foreign_check==0){
+                cout<<">>Foreign key error\n";
+                return;
+            }
             tab.keys[index].reference_key = cmd_array[i];
             i++;
         }
@@ -164,12 +214,20 @@ void create_table(){
             i++;
             if(cmd_array[i].substr(cmd_array[i].length()-1) == ","){
                 k.type = cmd_array[i].substr(0,cmd_array[i].length()-1);
+                if(k.type != "INT" && k.type != "CHAR" && k.type != "DEC"){
+                    cout<<">>Invalid attribute type\n";
+                    return;
+                }
                 i++;
                 tab.keys.push_back(k);
                 continue;
             }
             else{
                 k.type = cmd_array[i];
+                if(k.type != "INT" && k.type != "CHAR" && k.type != "DEC"){
+                    cout<<">>Invalid attribute type\n";
+                    return;
+                }
                 i++;
                 if(cmd_array[i] == ");"){
                     tab.keys.push_back(k);
@@ -184,17 +242,19 @@ void create_table(){
                         k.condition = cmd_array[i].substr(1,cmd_array[i].length()-3);
                     }
                     i++;
+                    if(k.condition != "NOT_NULL" && k.condition != "UNIQUE" && k.condition != "UNIQUE AND NOT_NULL"){
+                        cout<<">>Invalid condition for key\n";
+                        return;
+                    }
                     tab.keys.push_back(k);
                 }
             }
         }
     }
-
-    fstream myfile;
     myfile.open("schema.txt", ios::out|ios::app);
     if( !myfile.is_open())
     {
-          cout << "File Error : Table not created \n";
+          cout << ">>File Error : Table not created \n";
           return;
     }
 
@@ -202,15 +262,26 @@ void create_table(){
     for(int i=0; i<tab.keys.size(); i++){
         myfile<<tab.keys[i].key_name<<"--"<<tab.keys[i].type;
         if(tab.keys[i].primary){
-            myfile<<"--primary key";
+            myfile<<"--PK";
         }
+        else{
+            myfile<<"-- ";
+        }
+
         if(tab.keys[i].foreign){
-            myfile<<"--foreign key references "<<tab.keys[i].reference_table<<"("<<tab.keys[i].reference_key<<")";
+            myfile<<"--FK "<<tab.keys[i].reference_table<<" "<<tab.keys[i].reference_key;
         }
+        else{
+            myfile<<"-- ";
+        }
+
         if(tab.keys[i].condition != ""){
             myfile<<"--"<<tab.keys[i].condition;
         }
-        myfile<<endl;
+        else{
+            myfile<<"-- ";
+        }
+        myfile<<"--"<<endl;
     }
     myfile<<endl;
     myfile.close();
@@ -221,6 +292,8 @@ void create_table(){
     }
     myfile<<"\n";
     myfile.close();
+    cout<<">>Table created"<<endl;
+    schema.push_back(tab);
 }
 
 void drop_table(){
@@ -232,7 +305,7 @@ void drop_table(){
     out.open("temporary.txt");
     if( !in.is_open() || !out.is_open())
     {
-          cout << "File Error : Table not dropped \n";
+          cout << ">>File Error : Table not dropped \n";
           return;
     }
     while( getline(in,line) )
@@ -254,6 +327,16 @@ void drop_table(){
     else{
         remove(line.c_str());
         cout<<">>Table removed successfully"<<endl;
+        /*for (auto it = schema.begin(); it != schema.end(); ++it)
+            if(*it.table_name == cmd_array[2]){
+                schema.erase(it);
+            }
+        }*/
+        for(int i=0; i<schema.size(); i++){
+            if(schema[i].table_name == cmd_array[2]){
+                schema.erase(schema.begin()+i);
+            }
+        }
     }
     in.close();
     out.close();
@@ -262,64 +345,158 @@ void drop_table(){
 }
 
 void describe_table(){
-    int a=0,check=0;
-    string line;
-    ifstream in;
-    in.open("schema.txt");
-    if( !in.is_open())
-    {
-          cout << "File Error\n";
-          return;
-    }
-    while( getline(in,line) )
-    {
-        if(line == cmd_array[1] || a==1){
-            a=1;check=1;
-            cout<<">>"<<line<<"\n";
-            if(line == ""){
-                a=0;
+    int check=0;
+    for(int i=0; i<schema.size(); i++){
+        if(cmd_array[1] == schema[i].table_name){
+            check=1;
+            cout<<">>"<<cmd_array[1]<<endl;
+            for(int j=0; j<schema[i].keys.size(); j++){
+                cout<<">>"<<schema[i].keys[j].key_name;
+                cout<<"--"<<schema[i].keys[j].type;
+                if(schema[i].keys[j].primary == true){
+                    cout<<"--Primary Key";
+                }
+                if(schema[i].keys[j].foreign == true){
+                    cout<<"--Foreign Key   References   "<<schema[i].keys[j].reference_table<<"("<<schema[i].keys[j].reference_key<<")";
+                }
+                if(schema[i].keys[j].condition != ""){
+                    cout<<"--"<<schema[i].keys[j].condition<<endl;
+                }
+                cout<<endl;
             }
         }
     }
-    if(check==0){
-        cout<<">>"<<"Table not found"<<endl;
-    }
-    in.close();
 }
 
 void help_tables(){
-    int a=0;
-    string line, t_name;;
-    ifstream in;
-    in.open("schema.txt");
+    for(int i=0; i<schema.size(); i++)
+    {
+        for(int j=0; j<schema[i].keys.size(); j++){
+            cout<<schema[i].table_name<<"#"<<schema[i].keys[j].key_name<<"\n";
+        }
+        cout<<endl;
+    }
     cout<<">>"<<endl;
+}
+
+void schema_parser(){
+    int a=0;
+    int check=0;
+    string line,Line;
+    ifstream in;
+    table table_temp;
+    in.open("schema.txt");
     if( !in.is_open())
     {
-          cout << "File Error \n";
+          cout << ">>File Error \n";
           return;
-    }
-    if(in.peek() == EOF){
-        cout<<"No tables found \n";
-        return;
     }
     while( getline(in,line) )
     {
+        if(check==1){
+            a=1;
+            check=0;
+        }
+        if(a==0){
+            table_temp.table_name = line;
+            check=1;
+        }
         if(a==1){
+            key k;
             if(line == ""){
                 a=0;
+                schema.push_back(table_temp);
+                table_temp.keys.clear();
                 continue;
             }
             int start=0;
             int last = line.find("--");
-            line = line.substr(start, last);
-            cout<<t_name<<"#"<<line<<"\n";
-        }
-        if(a==0){
-            t_name = line;
-            cout<<endl;
-            a=1;
+            Line = line.substr(start, last);
+            k.key_name = Line;
+            start = last + 2;
+            last = line.find("--", start);
+            Line = line.substr(start, last-start);
+            k.type = Line;
+            start = last + 2;
+            last = line.find("--", start);
+            Line = line.substr(start, last-start);
+            if(Line == "PK"){
+                k.primary = true;
+            }
+            start = last + 2;
+            last = line.find("--", start);
+            Line = line.substr(start, last-start);
+            if(Line != " "){
+                istringstream ss(Line);
+                string word;
+                vector<string> words;
+                while (ss >> word)
+                {
+                    words.push_back(word);
+                }
+                if(words[0]=="FK"){
+                    k.foreign = true;
+                    k.reference_table = words[1];
+                    k.reference_key = words[2];
+                }
+            }
+            start = last + 2;
+            last = line.find("--", start);
+            Line = line.substr(start, last-start);
+            if(Line != " "){
+                k.condition = Line;
+            }
+            table_temp.keys.push_back(k);
         }
     }
-    cout<<endl<<">>"<<endl;
-    in.close();
+    /*for(int i=0; i<schema.size(); i++){
+        for(int j=0; j<schema[i].keys.size(); j++){
+            cout<<schema[i].table_name<<"#"<<schema[i].keys[j].key_name<<"#"<<schema[i].keys[j].type<<"\n";
+        }
+        cout<<endl;
+    }
+    cout<<">>"<<endl;*/
 }
+
+
+void insert_data(){
+    int i,index,check=0,length=0;
+    for(i=0; i<schema.size(); i++){
+        if(cmd_array[2] == schema[i].table_name){
+            index=i;
+            check=1;
+            break;
+        }
+    }
+    if(check==0){
+        cout<<">>Table does not exist"<<endl;
+        return;
+    }
+    length = schema[index].keys.size();
+    i=5;
+    vector<string> values;
+    while(cmd_array[i] != ");"){
+        if(cmd_array[i+1] == ");"){
+            values.push_back(cmd_array[i]);
+        }
+        else{
+            values.push_back(cmd_array[i].substr(0, cmd_array[i].length()-1));
+        }
+        i++;
+    }
+    if(values.size()!=length){
+        cout<<">>No. of arguments don't match"<<endl;
+        return;
+    }
+
+    fstream myfile;
+    string fname = schema[index].table_name + ".csv";
+    myfile.open(fname.c_str(), ios::out|ios::app);
+    for(i=0; i<values.size(); i++){
+        myfile<<values[i]<<",";
+    }
+    myfile<<"\n";
+}
+
+//CREATE TABLE a1 ( a int, b int CHECK (UNIQUE), PRIMARY KEY ( a ) );
+//CREATE TABLE a2 ( a int, b int CHECK (N_NULL), PRIMARY KEY ( a ), FOREIGN KEY ( b ) REFERENCES a1 ( a ) );
