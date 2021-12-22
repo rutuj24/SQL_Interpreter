@@ -18,6 +18,7 @@ void describe_table();
 void help_tables();
 void insert_data();
 void delete_data();
+void select_data();
 
 class key{
     public:
@@ -70,6 +71,85 @@ int main()
     return 0;
 }
 
+void schema_parser(){
+    int a=0;
+    int check=0;
+    string line,Line;
+    ifstream in;
+    table table_temp;
+    in.open("schema.txt");
+    if( !in.is_open())
+    {
+          cout << ">>File Error \n";
+          return;
+    }
+    while( getline(in,line) )
+    {
+        if(check==1){
+            a=1;
+            check=0;
+        }
+        if(a==0){
+            table_temp.table_name = line;
+            check=1;
+        }
+        if(a==1){
+            key k;
+            if(line == ""){
+                a=0;
+                schema.push_back(table_temp);
+                table_temp.keys.clear();
+                continue;
+            }
+            int start=0;
+            int last = line.find("--");
+            Line = line.substr(start, last);
+            k.key_name = Line;
+            start = last + 2;
+            last = line.find("--", start);
+            Line = line.substr(start, last-start);
+            k.type = Line;
+            start = last + 2;
+            last = line.find("--", start);
+            Line = line.substr(start, last-start);
+            if(Line == "PK"){
+                k.primary = true;
+            }
+            start = last + 2;
+            last = line.find("--", start);
+            Line = line.substr(start, last-start);
+            if(Line != " "){
+                istringstream ss(Line);
+                string word;
+                vector<string> words;
+                while (ss >> word)
+                {
+                    words.push_back(word);
+                }
+                if(words[0]=="FK"){
+                    k.foreign = true;
+                    k.reference_table = words[1];
+                    k.reference_key = words[2];
+                }
+            }
+            start = last + 2;
+            last = line.find("--", start);
+            Line = line.substr(start, last-start);
+            if(Line != " "){
+                k.condition = Line;
+            }
+            table_temp.keys.push_back(k);
+        }
+    }
+    /*for(int i=0; i<schema.size(); i++){
+        for(int j=0; j<schema[i].keys.size(); j++){
+            cout<<schema[i].table_name<<"#"<<schema[i].keys[j].key_name<<"#"<<schema[i].keys[j].type<<"\n";
+        }
+        cout<<endl;
+    }
+    cout<<">>"<<endl;*/
+}
+
 void parse(string command){
     cmd_array.clear();
     int check;
@@ -112,7 +192,7 @@ void parse(string command){
         cout<<"Update data function"<<endl;
     }
     else if(cmd_array[0] == "SELECT"){
-        cout<<"Select data function"<<endl;
+        select_data();
     }
     else if(cmd_array[0] == "HELP" && cmd_array[1] == "TABLES"){
         help_tables();
@@ -303,10 +383,6 @@ void create_table(){
     myfile.close();
     string fname = tab.table_name + ".csv";
     myfile.open(fname.c_str(), ios::out);
-    for(int i=0; i<tab.keys.size(); i++){
-        myfile<<tab.keys[i].key_name<<",";
-    }
-    myfile<<"\n";
     myfile.close();
     cout<<">>Table created successfully"<<endl;
     schema.push_back(tab);
@@ -395,85 +471,6 @@ void help_tables(){
         cout<<endl;
     }
     cout<<">>"<<endl;
-}
-
-void schema_parser(){
-    int a=0;
-    int check=0;
-    string line,Line;
-    ifstream in;
-    table table_temp;
-    in.open("schema.txt");
-    if( !in.is_open())
-    {
-          cout << ">>File Error \n";
-          return;
-    }
-    while( getline(in,line) )
-    {
-        if(check==1){
-            a=1;
-            check=0;
-        }
-        if(a==0){
-            table_temp.table_name = line;
-            check=1;
-        }
-        if(a==1){
-            key k;
-            if(line == ""){
-                a=0;
-                schema.push_back(table_temp);
-                table_temp.keys.clear();
-                continue;
-            }
-            int start=0;
-            int last = line.find("--");
-            Line = line.substr(start, last);
-            k.key_name = Line;
-            start = last + 2;
-            last = line.find("--", start);
-            Line = line.substr(start, last-start);
-            k.type = Line;
-            start = last + 2;
-            last = line.find("--", start);
-            Line = line.substr(start, last-start);
-            if(Line == "PK"){
-                k.primary = true;
-            }
-            start = last + 2;
-            last = line.find("--", start);
-            Line = line.substr(start, last-start);
-            if(Line != " "){
-                istringstream ss(Line);
-                string word;
-                vector<string> words;
-                while (ss >> word)
-                {
-                    words.push_back(word);
-                }
-                if(words[0]=="FK"){
-                    k.foreign = true;
-                    k.reference_table = words[1];
-                    k.reference_key = words[2];
-                }
-            }
-            start = last + 2;
-            last = line.find("--", start);
-            Line = line.substr(start, last-start);
-            if(Line != " "){
-                k.condition = Line;
-            }
-            table_temp.keys.push_back(k);
-        }
-    }
-    /*for(int i=0; i<schema.size(); i++){
-        for(int j=0; j<schema[i].keys.size(); j++){
-            cout<<schema[i].table_name<<"#"<<schema[i].keys[j].key_name<<"#"<<schema[i].keys[j].type<<"\n";
-        }
-        cout<<endl;
-    }
-    cout<<">>"<<endl;*/
 }
 
 void insert_data(){
@@ -590,7 +587,7 @@ void insert_data(){
                 }
             }
             foreign_tab = foreign_tab + ".csv";
-            cout<<foreign_tab;
+            //cout<<foreign_tab;
             ifstream in;
             int check_for_foreign=0;
             in.open(foreign_tab.c_str());
@@ -635,7 +632,7 @@ void insert_data(){
 }
 
 void delete_data(){
-    int tab_index, check=0;
+    int tab_index, check=0, ki;
     for(int j=0; j<schema.size(); j++){
         if(schema[j].table_name==cmd_array[2]){
             tab_index = j;
@@ -644,17 +641,159 @@ void delete_data(){
         }
     }
     if(check==0){
-        cout<<"Table not found\n";
+        cout<<">>Table not found\n";
         return;
     }
 
-    vector<string> command;
+    vector<string> del_command;
     int i=4;
     while(cmd_array[i] != ";"){
-
+        del_command.push_back(cmd_array[i]);
+        i++;
     }
+
+    check=0;
+    for(int j=0; j<schema[tab_index].keys.size(); j++){
+        if(schema[tab_index].keys[j].key_name == del_command[0]){
+            check=1;
+            ki = j;
+            break;
+        }
+    }
+    if(check==0){
+        cout<<">>Invalid key name\n";
+        return;
+    }
+
+    if(del_command[1] != ">" && del_command[1] != "<" && del_command[1] != "<=" && del_command[1] != ">=" && del_command[1] != "=" && del_command[1] != "<>"){
+        cout<<">>Invalid command\n";
+        return;
+    }
+
+    string k_type = schema[tab_index].keys[ki].type;
+    if(k_type == "INT"){
+        int n = del_command[2].length();
+        char char_array[n + 1];
+        strcpy(char_array, del_command[2].c_str());
+        for(int j=0; j<n; j++){
+            if(!isdigit(char_array[j]) || char_array[j]=='"'){
+                cout<<">>Value type error\n";
+                return;
+            }
+        }
+    }
+
+    if(k_type == "DEC"){
+        int n = del_command[2].length();
+        char char_array[n + 1];
+        strcpy(char_array, del_command[2].c_str());
+        for(int j=0; j<n; j++){
+            if(!(isdigit(char_array[j])) && char_array[j]!='.'  || char_array[j]=='"'){
+                cout<<">>Value type error\n";
+                return;
+            }
+        }
+    }
+
+    if(k_type == "CHAR"){
+        int n = del_command[2].length(), x=0;
+        char char_array[n + 1];
+        strcpy(char_array, del_command[2].c_str());
+        for(int j=0; j<n; j++){
+            if(char_array[j]=='"'){
+                x++;
+            }
+        }
+        if(x!=2){
+            cout<<">>Value type error\n";
+            return;
+        }
+        if(del_command[1] == ">" || del_command[1] == "<" || del_command[1] == "<=" || del_command[1] == ">="){
+            cout<<">>Invalid command\n";
+            return;
+        }
+    }
+
+    ifstream in;
+    check=0;
+    string tab_nam = schema[tab_index].table_name+".csv";
+    in.open(tab_nam.c_str());
+    vector<vector<string> > tab;
+    vector<string> vals;
+    string line;
+    while( getline(in,line) ){
+        stringstream ss(line);
+        string word;
+        vals.clear();
+        while (getline(ss, word, ',')){
+            vals.push_back(word);
+            //cout<<word;
+        }
+        if(del_command[1] == "="){
+            if(del_command[2] == vals[ki]){
+                check=1;
+                continue;
+            }
+        }
+        if(del_command[1] == "<>"){
+            if(del_command[2] != vals[ki]){
+                check=1;
+                continue;
+            }
+        }
+        if(del_command[1] == "<"){
+            if(del_command[2] > vals[ki]){
+                check=1;
+                continue;
+            }
+        }
+        if(del_command[1] == ">"){
+            if(del_command[2] < vals[ki]){
+                check=1;
+                continue;
+            }
+        }
+        if(del_command[1] == ">="){
+            if(del_command[2] <= vals[ki]){
+                check=1;
+                continue;
+            }
+        }
+        if(del_command[1] == "<="){
+            if(del_command[2] >= vals[ki]){
+                check=1;
+                continue;
+            }
+        }
+        tab.push_back(vals);
+    }
+    in.close();
+
+    if(check==1){
+        cout<<">>Data deleted successfully\n";
+    }
+    else{
+        cout<<">>No data deleted\n";
+        return;
+    }
+
+    ofstream out;
+    out.open("temporary.csv");
+    for(int j=0; j<tab.size(); j++){
+        for(int k=0; k<tab[j].size(); k++){
+            out<<tab[j][k]<<",";
+        }
+        out<<"\n";
+    }
+    out.close();
+    remove(tab_nam.c_str());
+    rename("temporary.csv", tab_nam.c_str());
 }
 
+void select_data(){
+
+}
 //CREATE TABLE a1 ( a INT, b INT CHECK (UNIQUE), PRIMARY KEY ( a ) );
 //CREATE TABLE a2 ( c int, d int CHECK (N_NULL), PRIMARY KEY ( c ), FOREIGN KEY ( d ) REFERENCES a1 ( a ) );
 //INSERT INTO a1 ( 2223, 4356 );
+//delete from a1 where a = 1 ;
