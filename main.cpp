@@ -5,7 +5,7 @@
 #include <fstream>
 #include <bits/stdc++.h>
 #include <cstring>
-
+#include<sstream>
 
 using namespace std;
 
@@ -17,6 +17,7 @@ void drop_table();
 void describe_table();
 void help_tables();
 void insert_data();
+void delete_data();
 
 class key{
     public:
@@ -43,7 +44,7 @@ int a=1;
 int main()
 {
     string command;
-    cout << "SQL INTERPRETER" << endl;
+    cout << "           DBMS CP" << endl;
     schema_parser();
     while(a!=0){
         /*for(int i=0; i<schema.size(); i++){
@@ -71,12 +72,27 @@ int main()
 
 void parse(string command){
     cmd_array.clear();
+    int check;
     stringstream ss(command);
     string word;
     while (ss >> word) {
+        int n = word.length();
+        check=1;
+        char char_array[n + 1];
+        strcpy(char_array, word.c_str());
+        for(int j=0; j<n; j++){
+            if(char_array[j]=='"'){
+                check=0;
+            }
+        }
+        if(check==1){
+            transform(word.begin(), word.end(), word.begin(), ::toupper);
+        }
+        //cout<<word;
         cmd_array.push_back(word);
     }
 
+//    transform(cmd_array[0].begin(), cmd_array[0].end(), cmd_array[0].begin(), ::toupper);
     if(cmd_array[0] == "CREATE"){
         create_table();
     }
@@ -90,7 +106,7 @@ void parse(string command){
         insert_data();
     }
     else if(cmd_array[0] == "DELETE"){
-        cout<<"Delete data function"<<endl;
+        delete_data();
     }
     else if(cmd_array[0] == "UPDATE"){
         cout<<"Update data function"<<endl;
@@ -127,7 +143,7 @@ void help_cmd(){
         cout<<">>SELECT attribute_list FROM table_list WHERE condition_list;"<<endl;
     }
     else if(cmd_array[1] == "INSERT"){
-        cout<<">>INSERT INTO table_name VALUES ( val1, val2, … );"<<endl;
+        cout<<">>INSERT INTO table_name VALUES ( INT, STRING, DEC … );"<<endl;
     }
     else if(cmd_array[1] == "DELETE"){
         cout<<">>DELETE FROM table_name WHERE condition_list;"<<endl;
@@ -190,7 +206,7 @@ void create_table(){
                 }
             }
             if(foreign_check==0){
-                cout<<">>Foreign key error\n";
+                cout<<">>Foreign key reference table error\n";
                 return;
             }
             tab.keys[index].reference_table = cmd_array[i];
@@ -198,12 +214,12 @@ void create_table(){
             i = i+2;
             foreign_check=0;
             for(int k=0; k<schema[foreign_index].keys.size(); k++){
-                if(cmd_array[i] == schema[foreign_index].keys[k].key_name){
+                if(cmd_array[i] == schema[foreign_index].keys[k].key_name && tab.keys[index].type==schema[foreign_index].keys[k].type){
                     foreign_check=1;
                 }
             }
             if(foreign_check==0){
-                cout<<">>Foreign key error\n";
+                cout<<">>Foreign key reference key error\n";
                 return;
             }
             tab.keys[index].reference_key = cmd_array[i];
@@ -242,7 +258,7 @@ void create_table(){
                         k.condition = cmd_array[i].substr(1,cmd_array[i].length()-3);
                     }
                     i++;
-                    if(k.condition != "NOT_NULL" && k.condition != "UNIQUE" && k.condition != "UNIQUE AND NOT_NULL"){
+                    if(k.condition != "NOT_NULL" && k.condition != "UNIQUE"){
                         cout<<">>Invalid condition for key\n";
                         return;
                     }
@@ -292,13 +308,17 @@ void create_table(){
     }
     myfile<<"\n";
     myfile.close();
-    cout<<">>Table created"<<endl;
+    cout<<">>Table created successfully"<<endl;
     schema.push_back(tab);
 }
 
 void drop_table(){
     int a=0,check=0;
     string line;
+    if(cmd_array.size()<3){
+        cout<<">>Syntax Error\n";
+        return;
+    }
     ifstream in;
     in.open("schema.txt");
     ofstream out;
@@ -371,9 +391,7 @@ void describe_table(){
 void help_tables(){
     for(int i=0; i<schema.size(); i++)
     {
-        for(int j=0; j<schema[i].keys.size(); j++){
-            cout<<schema[i].table_name<<"#"<<schema[i].keys[j].key_name<<"\n";
-        }
+        cout<<schema[i].table_name;
         cout<<endl;
     }
     cout<<">>"<<endl;
@@ -458,7 +476,6 @@ void schema_parser(){
     cout<<">>"<<endl;*/
 }
 
-
 void insert_data(){
     int i,index,check=0,length=0;
     for(i=0; i<schema.size(); i++){
@@ -484,11 +501,128 @@ void insert_data(){
         }
         i++;
     }
+    /*cout<<values.size();
+    for(int i=0; i<values.size(); i++){
+        cout<<values[i];
+    }*/
     if(values.size()!=length){
-        cout<<">>No. of arguments don't match"<<endl;
+        cout<<">>No. of arguments don't match"<<endl;           //CHECKING LENGTH
         return;
     }
 
+    for(int i=0; i<length; i++){                                //CHECKING VALUES
+        if(schema[index].keys[i].type == "INT"){
+            int n = values[i].length();
+            char char_array[n + 1];
+            strcpy(char_array, values[i].c_str());
+            for(int j=0; j<n; j++){
+                if(!isdigit(char_array[j]) || char_array[j]=='"'){
+                    cout<<">>Value type error\n";
+                    return;
+                }
+            }
+        }
+        if(schema[index].keys[i].type == "DEC"){
+            int n = values[i].length();
+            char char_array[n + 1];
+            strcpy(char_array, values[i].c_str());
+            for(int j=0; j<n; j++){
+                if(!(isdigit(char_array[j])) && char_array[j]!='.'  || char_array[j]=='"'){
+                    cout<<">>Value type error\n";
+                    return;
+                }
+            }
+        }
+
+        if(schema[index].keys[i].type == "CHAR"){
+            int n = values[i].length(), x=0;
+            char char_array[n + 1];
+            strcpy(char_array, values[i].c_str());
+            for(int j=0; j<n; j++){
+                if(char_array[j]=='"'){
+                    x++;
+                }
+            }
+            //cout<<x;
+            if(x!=2){
+                cout<<">>Value type error\n";
+                return;
+            }
+        }
+
+        if(schema[index].keys[i].primary == true || schema[index].keys[i].condition == "UNIQUE"){
+            ifstream in;
+            string tab_nam = schema[index].table_name+".csv";
+            in.open(tab_nam.c_str());
+            vector<string> vals;
+            string line;
+            while( getline(in,line) ){
+                stringstream ss(line);
+                string word;
+                vals.clear();
+                while (getline(ss, word, ',')){
+                    vals.push_back(word);
+                }
+                //cout<<vals[i]<<endl<<values[i];
+                if(values[i] == vals[i]){
+                    cout<<">>Primary Key or Constraint error\n";
+                    in.close();
+                    return;
+                }
+            }
+            in.close();
+        }
+
+        if(schema[index].keys[i].foreign == true){
+            string foreign_tab = schema[index].keys[i].reference_table;
+            string foreign_k = schema[index].keys[i].reference_key;
+            int foreign_id, foreign_key_id;
+            for(int j=0; j<schema.size(); j++){
+                if(schema[j].table_name == foreign_tab){
+                    foreign_id = j;
+                    break;
+                }
+            }
+            for(int j=0; j<schema[foreign_id].keys.size(); j++){
+                if(schema[foreign_id].keys[j].key_name == foreign_k){
+                    foreign_key_id = j;
+                    break;
+                }
+            }
+            foreign_tab = foreign_tab + ".csv";
+            cout<<foreign_tab;
+            ifstream in;
+            int check_for_foreign=0;
+            in.open(foreign_tab.c_str());
+            vector<string> vals;
+            string line;
+            while( getline(in,line) ){
+                stringstream ss(line);
+                string word;
+                vals.clear();
+                while (getline(ss, word, ',')){
+                    vals.push_back(word);
+                }
+                //cout<<vals[foreign_key_id]<<endl<<values[i];
+                if(values[i] == vals[foreign_key_id]){
+                    check_for_foreign=1;
+                    break;
+                }
+            }
+            if(check_for_foreign==0){
+                cout<<">>Foreign key error\n";
+                return;
+            }
+            in.close();
+        }
+
+        if(schema[index].keys[i].condition == "NOT_NULL"){
+            if(values[i] == "0" || values[i] == ""){
+                cout<<">>Constraint error\n";
+                return;
+            }
+        }
+    }
     fstream myfile;
     string fname = schema[index].table_name + ".csv";
     myfile.open(fname.c_str(), ios::out|ios::app);
@@ -496,7 +630,31 @@ void insert_data(){
         myfile<<values[i]<<",";
     }
     myfile<<"\n";
+    cout<<">>Data added successfully\n";
+    myfile.close();
 }
 
-//CREATE TABLE a1 ( a int, b int CHECK (UNIQUE), PRIMARY KEY ( a ) );
-//CREATE TABLE a2 ( a int, b int CHECK (N_NULL), PRIMARY KEY ( a ), FOREIGN KEY ( b ) REFERENCES a1 ( a ) );
+void delete_data(){
+    int tab_index, check=0;
+    for(int j=0; j<schema.size(); j++){
+        if(schema[j].table_name==cmd_array[2]){
+            tab_index = j;
+            check=1;
+            break;
+        }
+    }
+    if(check==0){
+        cout<<"Table not found\n";
+        return;
+    }
+
+    vector<string> command;
+    int i=4;
+    while(cmd_array[i] != ";"){
+
+    }
+}
+
+//CREATE TABLE a1 ( a INT, b INT CHECK (UNIQUE), PRIMARY KEY ( a ) );
+//CREATE TABLE a2 ( c int, d int CHECK (N_NULL), PRIMARY KEY ( c ), FOREIGN KEY ( d ) REFERENCES a1 ( a ) );
+//INSERT INTO a1 ( 2223, 4356 );
